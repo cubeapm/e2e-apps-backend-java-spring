@@ -1,0 +1,54 @@
+# =============================================================================
+# Unified CubeAPM data generator — single source of truth.
+#
+# Edit this file, then run `make up`. Everything else (the docker-compose stack,
+# the nginx tenant gateway, the load generator targets and the synthetic streams)
+# is generated from here by generate.py.
+#
+#   - services[]  = real Spring Boot containers (one JVM each), instrumented with
+#                   the chosen vendor agent. Hit continuously by the load generator.
+#   - synthetic[] = lightweight OTLP streams via telemetrygen (no JVM) for breadth.
+#
+# Multi-tenant routing uses the `x-cube-org-slug` header. NOTE: the org slugs
+# below MUST already exist in CubeAPM — an unknown slug silently lands in the
+# default org. (You said you'll pre-create them.)
+# =============================================================================
+
+cubeapm:
+  host: host.docker.internal      # where CubeAPM ingest is reachable from containers
+  # OTEL/synthetic traces transport. CubeAPM reads x-cube-org-slug from both the
+  # OTLP HTTP headers and gRPC metadata, so multi-tenancy works either way.
+  # (Use grpc if 4318/OTLP-HTTP is ever occupied by another process.)
+  traces_transport: http          # http -> otlp_http_port | grpc -> otlp_grpc_port
+  otlp_grpc_port: 4317            # OTLP gRPC receiver (traces, if traces_transport: grpc)
+  otlp_http_port: 4318            # OTLP HTTP receiver (traces)
+  ingest_port: 3130               # CubeAPM ingest (OTEL metrics/logs, Datadog, Elastic, synthetic logs)
+  newrelic:
+    enabled: true                 # false -> skip every newrelic service entirely
+    # New Relic's Java agent always speaks TLS and cannot attach a custom header,
+    # so its traffic is routed through the tenant-gateway (TLS, self-signed) which
+    # injects x-cube-org-slug per org. This is the one vendor path that needs
+    # validation against your CubeAPM (see README "New Relic caveat").
+    upstream_port: 3130           # CubeAPM port that accepts New Relic intake
+    license_key: ABC4567890ABC4567890ABC4567890ABC4567890
+
+defaults:
+  environment: demo
+  service_version: 1.2.3
+  traffic:
+    rps: 2                        # requests/sec the load generator sends per service
+    error_ratio: 0.05             # fraction of requests routed to /exception
+
+# --- Real Spring Boot app instances. vendor: otel | datadog | elastic | newrelic ---
+# Each entry = one container. Service name + org slug are stamped by the app itself.
+services:
+  - { name: checkout-otel,     vendor: otel,     org_slug: default }
+  - { name: payments-dd,       vendor: datadog,  org_slug: default }
+  - { name: inventory-elastic, vendor: elastic,  org_slug: ola-money }
+  - { name: shipping-nr,       vendor: newrelic, org_slug: ola-money }
+  - { name: search-otel,       vendor: otel,     org_slug: ola-electric, traffic: { rps: 5 } }
+
+# --- Synthetic OTLP streams (no JVM). signals: traces, logs ---
+synthetic:
+  - { service_name: recommendations, org_slug: default,    rps: 5, signals: [traces, logs] }
+  - { service_name: notifications,   org_slug: ola-electric, rps: 3, signals: [traces, logs] }

@@ -31,6 +31,12 @@
 			<version>8.4.0</version>
         	<scope>runtime</scope>
     	</dependency>
+		<!-- added for local (no-docker) run: in-memory DB so JPA boots without a MySQL server -->
+		<dependency>
+			<groupId>com.h2database</groupId>
+			<artifactId>h2</artifactId>
+			<scope>runtime</scope>
+		</dependency>
 		<dependency>
         	<groupId>org.springframework</groupId>
         	<artifactId>spring-expression</artifactId>
