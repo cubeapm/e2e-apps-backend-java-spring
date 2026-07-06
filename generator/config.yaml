@@ -36,7 +36,7 @@ defaults:
   environment: demo
   service_version: 1.2.3
   traffic:
-    rps: 2                        # requests/sec the load generator sends per service
+    rps: 50                       # requests/sec the load generator sends per service
     error_ratio: 0.05             # fraction of requests routed to /exception
 
 # --- Real Spring Boot app instances. vendor: otel | datadog | elastic | newrelic ---
@@ -46,9 +46,9 @@ services:
   - { name: payments-dd,       vendor: datadog,  org_slug: default }
   - { name: inventory-elastic, vendor: elastic,  org_slug: ola-money }
   - { name: shipping-nr,       vendor: newrelic, org_slug: ola-money }
-  - { name: search-otel,       vendor: otel,     org_slug: ola-electric, traffic: { rps: 5 } }
+  - { name: search-otel,       vendor: otel,     org_slug: ola-electric, traffic: { rps: 80 } }
 
 # --- Synthetic OTLP streams (no JVM). signals: traces, logs ---
 synthetic:
-  - { service_name: recommendations, org_slug: default,    rps: 5, signals: [traces, logs] }
-  - { service_name: notifications,   org_slug: ola-electric, rps: 3, signals: [traces, logs] }
+  - { service_name: recommendations, org_slug: default,    rps: 80, signals: [traces, logs] }
+  - { service_name: notifications,   org_slug: ola-electric, rps: 60, signals: [traces, logs] }
